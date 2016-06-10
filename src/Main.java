@@ -1,84 +1,183 @@
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
 import java.sql.*;
+import java.util.ArrayList;
 
 public class Main {
 
-    public static void main(String[] args) throws SQLException, ClassNotFoundException {
-        Connection connection = null;
-        String url = "jdbc:oracle:thin:@localhost:1521:xe";
-        String name = "Yura";
-        String password = "Cv72vbfg";
-        Class.forName("org.postgresql.Driver");
-
-        connection = DriverManager.getConnection(url, name, password);
-        Statement statement = null;
-        statement = connection.createStatement();
-        getUniversitiesNames(statement);
-        getCumpuses(statement);
-        getDomitory(statement);
-        getFaculty(statement);
-        getEmploee(statement);
-        getUniversityWithSpeciality(statement);
-        statement.close();
-        connection.close();
+    static QueryManager queryManager;
+    static Connection connection;
+    static Statement statement;
+    static ArrayList<String> actionsList;
+    public static void main(String[] args){
+        if (!initiateConnection())
+            return;
+        actionsList = new ArrayList<>();
+        actionsList.add("Вывести список всех университетов");
+        actionsList.add("Вывести список всех филиалов университета");
+        actionsList.add("Вывести список всех общежитий филиала университета");
+        actionsList.add("Вывести списко всех факультетов филиала университета");
+        actionsList.add("Вывести список всех кто преподаёт на факультете филиала");
+        actionsList.add("Вывести список всех факультетов, где преподаётся специальность");
+        mainIterationWithUser();
+        closeConnection();
     }
 
-    private static void getUniversitiesNames(Statement statement) throws SQLException {
-        System.out.println("Универы");
-        ResultSet resultSet = statement.executeQuery("Select Name from University");
-        while (resultSet.next()) {
-            System.out.println(resultSet.getString(1));
+    private static void mainIterationWithUser() {
+        while (true) {
+            int answer = askQuestionFromList("Выберите действие: ", actionsList);
+            if (answer == -1) {
+                if (askBinaryQuestion("Вы желаете продолжить?")) {
+                    continue;
+                }
+                else{
+                    return;
+                }
+            }
+            else {
+                try {
+                    switch (answer) {
+                        case 0:
+                            say(queryManager.getAllUniversitiesNames());
+                            break;
+                        case 1:
+                            say(queryManager.getCumpusesOfUniversity(
+                                    askString("Введите название университета")));
+                            break;
+                        case 2:
+                            say(queryManager.getDomitoryOfUniversityInTown(
+                                    askString("Введите название университета"),
+                                    askString("Введите название города (филиала)")));
+                            break;
+                        case 3:
+                            say(queryManager.getFacultyOfUniversityInTown(
+                                    askString("Введите название университета"),
+                                    askString("Введите название города (филиала)")));
+                            break;
+                        case 4:
+                            say(queryManager.getEmploeeFromFacultyOfBranch(
+                                    askString("Введите название университета"),
+                                    askString("Введите название города (филиала)"),
+                                    askString("Введине название факультета")));
+                            break;
+                        case 5:
+                            say(queryManager.getUniversityWithSpeciality(
+                                    askString("Введите название специальности")));
+                            break;
+                        default:
+                            say("Данные запрос ещё не реализован. Обратитесь позднее");
+                            break;
+                    }
+                }
+                catch (SQLException ex){
+                    say("Произошла какая то ошибка в базе данных");
+                }
+            }
+            if (!askBinaryQuestion("Вы желаете продолжить?")) {
+                return;
+            }
         }
     }
 
-    private static void getCumpuses(Statement statement) throws SQLException {
-        ResultSet resultSet = statement.executeQuery("Select Branches.TOWN from University right join Branches on University.ID = Branches.UNIVERSITY_ID\n" +
-                "Where University.NAME = 'ВШЭ'");
-        while (resultSet.next()) {
-            System.out.println(resultSet.getString(1));
+    private static boolean initiateConnection(){
+        while (true) {
+            try {
+                String url = "jdbc:oracle:thin:@localhost:1521:xe";
+                String name = "Yura";
+                String password = "Cv72vbfg";
+                Class.forName("org.postgresql.Driver");
+
+                connection = DriverManager.getConnection(url, name, password);
+                statement = connection.createStatement();
+                queryManager = new QueryManager(statement);
+                return true;
+            } catch (ClassNotFoundException | SQLException e) {
+                say("Проблема с подключением к базе данных.");
+                if (askBinaryQuestion("Попробовать снова?")){
+                    continue;
+                }
+                else{
+                    return false;
+                }
+            }
         }
     }
 
-    private static void getDomitory(Statement statement) throws SQLException {
-        System.out.println("Общага");
-        ResultSet resultSet = statement.executeQuery("Select Dormitory.* from Dormitory left join Branches on Dormitory.BRANCH_ID = Branches.ID left join University on University.ID = Branches.UNIVERSITY_ID\n" +
-                "Where University.NAME = 'ВШЭ' and Branches.TOWN = 'Москва'");
-        while (resultSet.next()) {
-            System.out.println("Адресс " + resultSet.getString("adress")
-                    + "\t мест: " + resultSet.getInt("place_count"));
+    private static String askString(String question) {
+        BufferedReader br = new BufferedReader(new InputStreamReader(System.in));
+        say(question);
+        try {
+            return br.readLine();
+        } catch (IOException e) {
+            return "";
         }
     }
 
-    private static void getFaculty(Statement statement) throws SQLException {
-        System.out.println("Факультеты");
-        ResultSet resultSet = statement.executeQuery("Select Faculty.* from Faculty left join Branches on Faculty.BRANCH_ID = Branches.ID left join University on University.ID = Branches.UNIVERSITY_ID\n" +
-                "Where University.NAME = 'ВШЭ' and Branches.TOWN = 'Москва'");
-        while (resultSet.next()) {
-            System.out.println(resultSet.getString("name"));
+    private static int askQuestionFromList(String question, ArrayList<String> options){
+        BufferedReader br = new BufferedReader(new InputStreamReader(System.in));
+        int numberRepeat = 3;
+        int nubmerOptions = options.size();
+        while (numberRepeat >0) {
+            say(question + " (д/н)");
+            try {
+                try {
+                    int answer = Integer.parseInt(br.readLine());
+                    if (answer > 0 && answer < nubmerOptions){
+                        return answer;
+                    }
+                    else{
+                        say("Необходимо ввести число из диапазона [0," + nubmerOptions +")");
+                    }
+                }catch(NumberFormatException nfe) {
+                    say("Введено некорректное число");
+                }
+            } catch (IOException e) {
+                say("Произошла ошибка про вводе. Пожалуйста, повторите.");
+            }
+            numberRepeat--;
+        }
+        return -1;
+    }
+
+    private static boolean askBinaryQuestion(String question) {
+        BufferedReader br = new BufferedReader(new InputStreamReader(System.in));
+        int numberRepeat = 3;
+        while (numberRepeat >0) {
+            say(question + " (д/н)");
+            try {
+                String answer = br.readLine();
+                if (answer.toLowerCase().matches("д"))
+                    return true;
+                else if (answer.toLowerCase().matches("н"))
+                    return false;
+                say("необходимо ввести д или н");
+            } catch (IOException e) {
+                return false;
+            }
+            numberRepeat--;
+        }
+        say("Превышено число попыток. Результат принимается за отрицательный.");
+        return false;
+    }
+
+    private static void say(String speech){
+        System.out.println(speech);
+    }
+    private static void say(ArrayList<String> list){
+        for (String str:list) {
+            say(str);
         }
     }
 
-    private static void getEmploee(Statement statement) throws SQLException {
-        System.out.println("Сотрудники");
-        ResultSet resultSet = statement.executeQuery("Select Emploee.Name \n" +
-                "  from EMPLOEE left join EMPLOEEFACULTY on EMPLOEE.ID = EMPLOEEFACULTY.EMPLOEE_ID \n" +
-                "  left join Faculty on EMPLOEEFACULTY.Faculty_id = Faculty.id\n" +
-                "  left join Branches on Faculty.BRANCH_ID = Branches.ID \n" +
-                "  left join University on University.ID = Branches.UNIVERSITY_ID\n" +
-                "Where University.NAME = 'ВШЭ' and Branches.TOWN = 'Москва' and Faculty.NAME = 'ФКН'");
-        while (resultSet.next()) {
-            System.out.println(resultSet.getString("name"));
+    private static void closeConnection(){
+        try {
+            statement.close();
+            connection.close();
+        } catch (SQLException e) {
+            e.printStackTrace();
         }
     }
 
-    private static void getUniversityWithSpeciality(Statement statement) throws SQLException {
-        System.out.println("Сотрудники");
-        ResultSet resultSet = statement.executeQuery("Select University.Name, Branches.Town, Faculty.Name as Faculty  from University right join Branches on Branches.UNIVERSITY_ID = University.ID\n" +
-                "  right join  Faculty on Faculty.BRANCH_ID = Branches.ID \n" +
-                "  right join Speciality on Speciality.FACULTY_ID = Faculty.Id \n" +
-                "  left join SpecialityType on SPECIALITY.SPECIALITY_TYPE_ID = SpecialityType.ID\n" +
-                "Where SpecialityType.NAME = 'Программная Инженерия'");
-        while (resultSet.next()) {
-            System.out.println(resultSet.getString("name") + "\t" + resultSet.getString("town") + " \t" + resultSet.getString("Faculty"));
-        }
-    }
+
 }
