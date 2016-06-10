@@ -11,6 +11,7 @@ public class QueryManager {
         this.statement = statement;
     }
 
+    @FunctionalInterface
     interface WhatToTake{
         String take(ResultSet set) throws SQLException;
     }
