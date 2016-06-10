@@ -119,7 +119,8 @@ public class Main {
         int numberRepeat = 3;
         int nubmerOptions = options.size();
         while (numberRepeat >0) {
-            say(question + " (д/н)");
+            say(question);
+            say(options);
             try {
                 try {
                     int answer = Integer.parseInt(br.readLine());
@@ -165,9 +166,7 @@ public class Main {
         System.out.println(speech);
     }
     private static void say(ArrayList<String> list){
-        for (String str:list) {
-            say(str);
-        }
+        list.forEach(Main::say);
     }
 
     private static void closeConnection(){
