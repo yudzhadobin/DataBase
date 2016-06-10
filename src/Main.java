@@ -120,11 +120,11 @@ public class Main {
         int nubmerOptions = options.size();
         while (numberRepeat >0) {
             say(question);
-            say(options);
+            say(options, true);
             try {
                 try {
                     int answer = Integer.parseInt(br.readLine());
-                    if (answer > 0 && answer < nubmerOptions){
+                    if (answer >= 0 && answer < nubmerOptions){
                         return answer;
                     }
                     else{
@@ -165,9 +165,22 @@ public class Main {
     private static void say(String speech){
         System.out.println(speech);
     }
+    private static void say(ArrayList<String> list, boolean withNumbers){
+        int i = 0;
+        for (String str:list) {
+            if (withNumbers) {
+                say(Integer.toString(i) + ". " + str);
+                i++;
+            }
+            else {
+                say(str);
+            }
+        }
+    }
     private static void say(ArrayList<String> list){
         list.forEach(Main::say);
     }
+
 
     private static void closeConnection(){
         try {
